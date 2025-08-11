@@ -202,11 +202,8 @@ async function uploadData(newDownload: boolean = false) {
         roomId: event.cabin ?? undefined,
         customText: !event.cabin?.length ? 'Custom Event' : undefined,
       },
-      {
-        name: '—————————————',
-        customText: `Import ID: ${event.importId}`,
-      },
     ],
+    importId: event.importId,
   }));
 
   const resp = await fetch(
