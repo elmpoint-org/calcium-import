@@ -1,0 +1,18 @@
+{
+  "name": "ical-test",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "types": "tsc --watch --declaration --outDir .dist/",
+    "dev": "node --watch .dist/"
+  },
+  "dependencies": {
+    "dayjs": "^1.11.13",
+    "ical.js": "^2.0.1",
+    "typescript": "5.5.4",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.4"
+  }
+}
