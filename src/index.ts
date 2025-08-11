@@ -14,8 +14,6 @@ import path from 'node:path';
 
 import 'dotenv/config';
 
-// const n = 783;
-
 function prettyPrint(obj: unknown) {
   console.log(JSON.stringify(obj, undefined, 2));
 }
@@ -42,11 +40,12 @@ const dateShape = z.object({
   day: z.number(),
 });
 const shape = z.object({
-  summary: z.string(),
+  uid: z.string().transform(extractCalciumId),
+  summary: z.string().transform(fixApostrophe),
   dtstart: dateShape,
   dtend: dateShape.optional(),
   categories: cabinShape.optional(),
-  description: z.string().optional(),
+  description: z.string().optional().transform(fixApostrophe),
   rrule: z
     .object({
       freq: z.literal('DAILY'),
@@ -54,6 +53,15 @@ const shape = z.object({
     })
     .optional(),
 });
+
+function fixApostrophe(str?: string) {
+  if (!str?.length) return;
+  return str.replace(/[�]/g, '’');
+}
+
+function extractCalciumId(id: string) {
+  return id.replace(/^1754931775-(\w+)-515570@afosterri.org$/, '$1');
+}
 
 function parseDate(obj: z.infer<typeof dateShape>) {
   return dayjs({
@@ -136,6 +144,7 @@ async function ImportICS(newDownload: boolean = false) {
       }
 
       return {
+        importId: data.uid,
         title: data.summary,
         description: data.description,
         cabin: (data.categories && cabinMap[data.categories]) ?? null,
@@ -181,52 +190,47 @@ async function uploadData(newDownload: boolean = false) {
   const parsed = await ImportICS(newDownload);
   if (!parsed) return;
 
-  const functions = parsed.map((event) => async () => {
+  const finalEvents = parsed.map((event) => ({
+    title: event.title,
+    description: event.description ?? '',
+    authorId: '3ede5331-ab2d-46b6-89b4-dd68d0d4e2a0',
+    dateStart: stringToTS(event.dates.start),
+    dateEnd: stringToTS(event.dates.end),
+    reservations: [
+      {
+        name: event.title,
+        roomId: event.cabin ?? undefined,
+        customText: !event.cabin?.length ? 'Custom Event' : undefined,
+      },
+      {
+        name: '—————————————',
+        customText: `Import ID: ${event.importId}`,
+      },
+    ],
+  }));
+
+  const resp = await fetch(
+    'https://luforumi80.execute-api.us-east-1.amazonaws.com/gql',
     {
-      return fetch('https://api.elmpoint.xyz/one/gql', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          authorization: 'Bearer ' + process.env.EPC_TOKEN,
-        },
-        body: JSON.stringify({
-          query: `
-      mutation StayCreate($title: String!, $description: String!, $authorId: ID!, $dateStart: Int!, $dateEnd: Int!, $reservations: [StayReservationInput!]!) {
-        stayCreate(title: $title, description: $description, authorId: $authorId, dateStart: $dateStart, dateEnd: $dateEnd, reservations: $reservations) {
-          id
-        }
-      }`,
-          variables: {
-            title: event.title,
-            description: event.description ?? '',
-            authorId: '3ede5331-ab2d-46b6-89b4-dd68d0d4e2a0',
-            dateStart: stringToTS(event.dates.start),
-            dateEnd: stringToTS(event.dates.end),
-            reservations: [
-              {
-                name: event.title,
-                roomId: event.cabin ?? undefined,
-                customText: !event.cabin?.length ? 'Custom Event' : undefined,
-              },
-              {
-                name: '—————————————',
-                customText: 'Imported from Calcium',
-              },
-            ],
-          },
-        }),
-      })
-        .then((resp) => resp.json())
-        .catch((err) => console.error(err));
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        authorization: 'Bearer ' + process.env.EPC_TOKEN,
+      },
+      body: JSON.stringify({
+        query: `
+            mutation StayCreateMultiple($stays: [StayCreateMultipleInput!]!) {
+              stayCreateMultiple(stays: $stays) {
+                id
+              }
+            }`,
+        variables: { stays: finalEvents },
+      }),
     }
-  });
-
-  for (const func of functions) {
-    const response = await func();
-    prettyPrint(response);
-  }
-
-  // prettyPrint(resps);
+  )
+    .then((resp) => resp.json())
+    .catch((err) => console.error(err));
+  prettyPrint(resp);
 }
 
 /** convert to date timestamp.
@@ -241,25 +245,7 @@ function stringToTS(d: string) {
   return dateTS(dayjs(d, 'YYYY-MM-DD').unix());
 }
 
-// Testing()
-async function Testing() {
-  const runners = Array(8)
-    .fill(0)
-    .map(
-      () => () =>
-        new Promise<void>((resolve) => {
-          setTimeout(() => {
-            resolve();
-          }, 5000);
-        })
-    );
-
-  for (const func of runners) {
-    await func();
-    console.log('done!');
-  }
-}
-
 // RUNS
 
 // ImportICS(true);
+// uploadData(false);
