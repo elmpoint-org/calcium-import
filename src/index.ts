@@ -12,6 +12,8 @@ dayjs.extend(dayjsUTC);
 import { validate } from './validate';
 import path from 'node:path';
 
+import 'dotenv/config';
+
 // const n = 783;
 
 function prettyPrint(obj: unknown) {
@@ -84,15 +86,17 @@ export type Events = {
   };
 };
 
-async function ImportICS() {
+async function ImportICS(newDownload: boolean = false) {
   const filepath = path.join(__dirname, '../assets/CalciumEvents.ics');
 
   // FETCH CALCIUM
-  const datadown = await fetch(process.env.CALCIUM_URL!, {})
-    .then((resp) => resp.text())
-    .catch((e) => console.log(e));
-  if (!datadown) return;
-  await writeFile(filepath, datadown);
+  if (newDownload) {
+    const datadown = await fetch(process.env.CALCIUM_URL!, {})
+      .then((resp) => resp.text())
+      .catch((e) => console.log(e));
+    if (!datadown) return;
+    await writeFile(filepath, datadown);
+  }
 
   const data = (await readFile(filepath).catch(() => {}))?.toString();
   if (!data) return;
@@ -102,19 +106,16 @@ async function ImportICS() {
   const events = cc.getAllSubcomponents('vevent');
 
   // PARSE
-  let broken = [];
+  let broken: any[] = [];
   let unparsed = [];
   const parsed = events
     .map((c, i) => {
-      let obj: any;
-
+      let obj: any = {};
       try {
-        obj = c
-          .getAllProperties()
-          .reduce(
-            (o: any, it: any) => ({ ...o, [it.name]: it.getValues()[0] }),
-            {}
-          );
+        for (const prop of c.getAllProperties()) {
+          if (prop.name === 'exdate') continue;
+          obj[prop.name] = prop.getValues()[0];
+        }
       } catch (e) {
         broken.push({
           number: i,
@@ -142,7 +143,7 @@ async function ImportICS() {
           start: parseFormatDate(data.dtstart),
           end: data.rrule
             ? parseFormatDate(data.rrule.until)
-            : formatDate(parseDate(data.dtstart).add(1, 'day')),
+            : formatDate(parseDate(data.dtstart) /* .add(1, 'day') */),
         },
       };
     })
@@ -151,7 +152,7 @@ async function ImportICS() {
   // DISPLAY
 
   console.log('BROKEN: ', broken.length);
-  // prettyPrint(broken.slice(0,50))
+  // prettyPrint(broken.slice(0, 50));
 
   console.log('UNPARSED: ', unparsed.length);
   // prettyPrint(unparsed.slice(0,1))
@@ -165,19 +166,19 @@ async function ImportICS() {
   // console.log(parsed[240]);
 
   // write to file
-  return parsed;
+  writeFile(
+    path.join(__dirname, '../assets/IMPORT.json'),
+    JSON.stringify({ events: parsed })
+  );
 
-  // writeFile(
-  //   path.join(__dirname, '../assets/IMPORT.json'),
-  //   JSON.stringify({ events: parsed })
-  // );
+  return parsed;
 }
 
 //  --------------------------------------------------------------
 
 // uploadData();
-async function uploadData() {
-  const parsed = await ImportICS();
+async function uploadData(newDownload: boolean = false) {
+  const parsed = await ImportICS(newDownload);
   if (!parsed) return;
 
   const functions = parsed.map((event) => async () => {
@@ -259,4 +260,6 @@ async function Testing() {
   }
 }
 
-console.log('-- EOF --');
+// RUNS
+
+// ImportICS(true);

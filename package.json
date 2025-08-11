@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "dayjs": "^1.11.13",
+    "dotenv": "^17.2.1",
     "ical.js": "^2.0.1",
     "typescript": "5.5.4",
     "zod": "^3.23.8"
