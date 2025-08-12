@@ -60,7 +60,9 @@ function fixApostrophe(str?: string) {
 }
 
 function extractCalciumId(id: string) {
-  return id.replace(/^1754931775-(\w+)-515570@afosterri.org$/, '$1');
+  const re = /^1754931775-(\w+)-515570@afosterri.org$/;
+  if (!id.match(re)) throw new Error('bad id');
+  return id.replace(re, '$1');
 }
 
 function parseDate(obj: z.infer<typeof dateShape>) {
