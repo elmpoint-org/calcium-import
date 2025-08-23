@@ -60,7 +60,7 @@ function fixApostrophe(str?: string) {
 }
 
 function extractCalciumId(id: string) {
-  const re = /^1754931775-(\w+)-515570@afosterri.org$/;
+  const re = /^\d{10}-(\w+)-\d{6}@afosterri.org$/;
   if (!id.match(re)) throw new Error('bad id');
   return id.replace(re, '$1');
 }
@@ -96,7 +96,7 @@ export type Events = {
   };
 };
 
-async function ImportICS(newDownload: boolean = false) {
+async function ImportICS(newDownload: boolean = false, dateCutoff?: string) {
   const filepath = path.join(__dirname, '../assets/CalciumEvents.ics');
 
   // FETCH CALCIUM
@@ -145,7 +145,7 @@ async function ImportICS(newDownload: boolean = false) {
         return;
       }
 
-      return {
+      const event = {
         importId: data.uid,
         title: data.summary,
         description: data.description,
@@ -157,6 +157,11 @@ async function ImportICS(newDownload: boolean = false) {
             : formatDate(parseDate(data.dtstart) /* .add(1, 'day') */),
         },
       };
+
+      if (dateCutoff?.length && parseDate(data.dtstart).isAfter(dateCutoff))
+        return;
+
+      return event;
     })
     .filter((it) => !!it);
 
@@ -188,8 +193,8 @@ async function ImportICS(newDownload: boolean = false) {
 //  --------------------------------------------------------------
 
 // uploadData();
-async function uploadData(newDownload: boolean = false) {
-  const parsed = await ImportICS(newDownload);
+async function uploadData(...props: Parameters<typeof ImportICS>) {
+  const parsed = await ImportICS(...props);
   if (!parsed) return;
 
   const finalEvents = parsed.map((event) => ({
@@ -246,5 +251,5 @@ function stringToTS(d: string) {
 
 // RUNS
 
-// ImportICS(true);
-// uploadData(false);
+// ImportICS(true, '2024-12-31');
+uploadData(true, '2024-12-31');

@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "types": "tsc --watch --declaration --outDir .dist/",
-    "dev": "node --watch .dist/"
+    "dev": "node --watch .dist/",
+    "start": "node .dist/"
   },
   "dependencies": {
     "dayjs": "^1.11.13",
