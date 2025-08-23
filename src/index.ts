@@ -145,21 +145,27 @@ async function ImportICS(newDownload: boolean = false, dateCutoff?: string) {
         return;
       }
 
+      let dates: [dayjs.Dayjs, dayjs.Dayjs] = [
+        parseDate(data.dtstart),
+        parseDate(data.rrule?.until ?? data.dtstart),
+      ];
+
+      // swap if dates are in incorrect order
+      if (dates[1].isBefore(dates[0])) dates = [dates[1], dates[0]];
+
+      // check for date cutoff if provided
+      if (dateCutoff?.length && dates[1].isAfter(dateCutoff)) return;
+
       const event = {
         importId: data.uid,
         title: data.summary,
         description: data.description,
         cabin: (data.categories && cabinMap[data.categories]) ?? null,
         dates: {
-          start: parseFormatDate(data.dtstart),
-          end: data.rrule
-            ? parseFormatDate(data.rrule.until)
-            : formatDate(parseDate(data.dtstart) /* .add(1, 'day') */),
+          start: formatDate(dates[0]),
+          end: formatDate(dates[1]),
         },
       };
-
-      if (dateCutoff?.length && parseDate(data.dtstart).isAfter(dateCutoff))
-        return;
 
       return event;
     })
@@ -252,4 +258,4 @@ function stringToTS(d: string) {
 // RUNS
 
 // ImportICS(true, '2024-12-31');
-uploadData(true, '2024-12-31');
+// uploadData(true, '2024-12-31');
